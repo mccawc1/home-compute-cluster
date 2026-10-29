@@ -1,0 +1,364 @@
+<title>Chris's Ray Cluster Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@500;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: patch-panel workbench. Clickable map on top with a detail panel beside it, then a short field guide below. */
+:root {
+  --bg: #eef0ec; --panel: #f9faf7; --ink: #1d2a2a; --muted: #5a6763; --line: #c9cfc8;
+  --teal: #0f6b66; --teal-soft: #d7ebe7; --amber: #b8660b; --amber-soft: #f6e5cc; --danger: #a8322b; --danger-soft: #f6dcd8;
+  --display: "Chivo", "Segoe UI", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141b1a; --panel: #1c2524; --ink: #e5ebe7; --muted: #9caba5; --line: #33403e;
+  --teal: #5cc4b8; --teal-soft: #173835; --amber: #eaa64c; --amber-soft: #3a2a14; --danger: #ee8378; --danger-soft: #3d1d1a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141b1a; --panel: #1c2524; --ink: #e5ebe7; --muted: #9caba5; --line: #33403e;
+  --teal: #5cc4b8; --teal-soft: #173835; --amber: #eaa64c; --amber-soft: #3a2a14; --danger: #ee8378; --danger-soft: #3d1d1a; color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font: 17px/1.6 var(--body); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; line-height: 1.2; margin: 0; }
+h1 { font-size: clamp(1.7rem, 4vw, 2.4rem); }
+h2 { font-size: 1.45rem; margin-bottom: 10px; }
+h3 { font-size: 1.08rem; margin-bottom: 6px; }
+p { margin: 0 0 10px; }
+code { font: 0.86em var(--mono); background: var(--teal-soft); padding: 1px 5px; border-radius: 4px; }
+pre { font: 13.5px/1.55 var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: 6px 0 12px; }
+pre code { background: none; padding: 0; font-size: inherit; }
+.eyebrow { font: 500 12px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--teal); }
+.lede { color: var(--muted); max-width: 64ch; margin-top: 8px; }
+
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; margin-top: 22px; align-items: start; }
+.mapbox { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+.mapbox svg { display: block; width: 100%; min-width: 720px; height: auto; }
+.hint { font: 12px var(--mono); color: var(--muted); padding: 8px 14px 10px; border-top: 1px solid var(--line); }
+.detail { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); min-width: 0; }
+.crumbs { font: 12px var(--mono); color: var(--muted); margin-bottom: 8px; }
+.crumbs button { font: inherit; color: var(--teal); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+.detail h3 { font-size: 1.3rem; margin-bottom: 10px; }
+.detail ul { padding-left: 20px; margin: 0 0 10px; }
+.kids { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.kids button, .navrow button { font: 500 13px var(--body); color: var(--teal); background: var(--teal-soft); border: 1px solid transparent; border-radius: 999px; padding: 4px 11px; cursor: pointer; }
+.kids button:hover, .navrow button:hover { border-color: var(--teal); }
+.navrow { display: flex; justify-content: space-between; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.warn { background: var(--danger-soft); color: var(--ink); border-left: 3px solid var(--danger); padding: 8px 12px; margin: 8px 0 10px; }
+.tip { background: var(--amber-soft); border-left: 3px solid var(--amber); padding: 8px 12px; margin: 8px 0 10px; }
+
+/* map nodes */
+.edge { stroke: var(--line); stroke-width: 2; fill: none; transition: opacity .25s; }
+.node { cursor: pointer; transition: opacity .25s; }
+.node rect { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+.node text { font: 500 14px var(--body); fill: var(--ink); text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+.node.root rect { fill: var(--teal); stroke: var(--teal); }
+.node.root text { fill: var(--panel); font: 700 18px var(--display); }
+.node.branch rect { fill: var(--teal-soft); stroke: var(--teal); }
+.node.branch text { font-weight: 700; }
+.node.leaf rect { fill: var(--panel); stroke: var(--amber); }
+.node.sel rect { stroke-width: 3.5; stroke: var(--amber); }
+.node:hover rect, .node:focus-visible rect { stroke-width: 3; }
+.node:focus { outline: none; }
+.dim { opacity: 0.22; }
+@media (prefers-reduced-motion: reduce) { .edge, .node { transition: none; } }
+
+/* guide */
+.guide { margin-top: 48px; display: grid; gap: 34px; }
+.guide section { max-width: 820px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 10px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.tblwrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font: 500 12px var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+ol.steps { padding-left: 22px; margin: 6px 0; }
+ol.steps li { margin-bottom: 8px; }
+.tag { font: 500 11px var(--mono); padding: 2px 7px; border-radius: 4px; background: var(--teal-soft); color: var(--teal); }
+footer { margin-top: 48px; font: 12px var(--mono); color: var(--muted); }
+
+@media (max-width: 900px) {
+  .stage { grid-template-columns: minmax(0, 1fr); }
+  .detail { position: static; }
+}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Home LAN · Ray 2.59.0 · 4 machines · 32 CPUs</div>
+  <h1>Chris's Ray cluster, mapped</h1>
+  <p class="lede">Click any bubble in the map to open it. The panel on the side explains what it is and how it fits in. The field guide below the map covers how Ray works, how to put the cluster online safely, and how your own cluster could work alongside this one.</p>
+
+  <div class="stage">
+    <div>
+      <div class="mapbox">
+        <svg id="map" viewBox="-560 -400 1120 800" role="group" aria-label="Interactive mind map of the Ray cluster"></svg>
+        <div class="hint">Click a topic to open it. Click the center to zoom back out. Tab and Enter work too.</div>
+      </div>
+    </div>
+    <aside class="detail" id="detail" aria-live="polite"></aside>
+  </div>
+
+  <div class="guide">
+    <section>
+      <div class="eyebrow">Field guide · part 1</div>
+      <h2>How a Ray cluster works</h2>
+      <p>Ray lets one ordinary Python program use the CPUs and memory of many computers as if they were one. You mark a function with <code>@ray.remote</code>, call it with <code>.remote()</code>, and Ray decides which machine runs it. You get back a ticket (an <em>ObjectRef</em>) and later swap it for the answer with <code>ray.get()</code>.</p>
+      <div class="cols">
+        <div class="card"><h3>Head node</h3><p>The boss. It runs the <strong>GCS</strong>, the cluster's address book, which tracks every node, job, and actor. It also hosts the dashboard. Ours is <code>minipc</code>.</p></div>
+        <div class="card"><h3>Worker nodes</h3><p>Each one runs a <strong>raylet</strong>, a local manager that starts Python worker processes and schedules tasks onto the machine's CPUs. Each also keeps a shared-memory <strong>object store</strong> for results.</p></div>
+        <div class="card"><h3>Driver</h3><p>The script you run, like <code>pi_job.py</code>. It connects with <code>ray.init(address=…)</code>, sends out work, and collects results. It can run on any machine that can reach the head.</p></div>
+      </div>
+      <p style="margin-top:14px">Results travel between machines through the object stores, not through shared folders. That is why big data should go in through <code>ray.put()</code> or task arguments. A file path on one PC means nothing on another.</p>
+    </section>
+
+    <section>
+      <div class="eyebrow">Field guide · part 2</div>
+      <h2>Chris's cluster today</h2>
+      <div class="tblwrap"><table>
+        <thead><tr><th>Machine</th><th>LAN IP</th><th>Role</th><th>Ray CPUs</th><th>Ray memory</th><th>Pi test, s/task</th></tr></thead>
+        <tbody>
+          <tr><td>minipc</td><td>home network</td><td>head</td><td>8</td><td>2.8 GiB</td><td>13.8</td></tr>
+          <tr><td>chris-SER8</td><td>home network</td><td>worker</td><td>16</td><td>11.0 GiB</td><td>11.6</td></tr>
+          <tr><td>ferocious-luke</td><td>home network</td><td>worker</td><td>4</td><td>10.0 GiB</td><td>36.1</td></tr>
+          <tr><td>pc3</td><td>home network</td><td>worker</td><td>4</td><td>2.6 GiB</td><td>26.5</td></tr>
+        </tbody>
+      </table></div>
+      <p style="margin-top:10px">Test run on 2026-10-27: 400 tasks estimated pi from 16 billion random points in 189 seconds, and got 3.1415751. SER8 took 248 of the 400 tasks because it has the most and fastest cores. Ray hands each new task to whichever CPU frees up first.</p>
+    </section>
+
+    <section>
+      <div class="eyebrow">Field guide · part 3</div>
+      <h2>Getting it online, safely</h2>
+      <div class="warn"><strong>Never port-forward Ray to the internet.</strong> By default Ray has no passwords. Anyone who can reach port  or  can run any code they like on every machine in the cluster. Attackers have scanned for exposed Ray clusters in real attacks (known as "ShadowRay", CVE-2023-48022).</div>
+      <p>The safe way is a <strong>private mesh VPN</strong>. Every machine gets a private address that only your own devices can reach, and it works through home routers with no port forwarding. <strong>Tailscale</strong> is the easiest option. ZeroTier, Headscale (self-hosted Tailscale) and plain WireGuard also work.</p>
+      <ol class="steps">
+        <li>Install Tailscale on every machine that will be in the cluster. Sign them all into <em>one</em> tailnet. Chris invites Austin as a user. Node "sharing" between two separate tailnets is one-way, and Ray needs machines to connect in both directions.</li>
+        <li>Note each machine's <code>100.x.y.z</code> address with <code>tailscale ip -4</code>.</li>
+        <li>Restart the head so it announces its Tailscale address:
+<pre><code>ray stop
+ray start --head  \
+  --node-ip-address=&lt;minipc 100.x IP&gt; \
+  --dashboard-host=&lt;minipc 100.x IP&gt;</code></pre></li>
+        <li>On every worker, including the home ones, join using its own Tailscale IP:
+<pre><code>ray stop
+ray start --address=&lt;minipc 100.x IP&gt; \
+  --node-ip-address=&lt;this machine's 100.x IP&gt;</code></pre></li>
+        <li>In the Tailscale admin console, add an access rule so only tagged Ray machines can talk to each other. This stops a phone or laptop on the tailnet from reaching the cluster.</li>
+      </ol>
+      <div class="tip"><strong>Match versions everywhere.</strong> Every machine needs the same Ray version (2.59.0) and the same Python minor version. Use Linux. Windows PCs can join through WSL2 (see part 6).</div>
+    </section>
+
+    <section>
+      <div class="eyebrow">Field guide · part 4</div>
+      <h2>Austin's cluster plus Chris's</h2>
+      <p>One Ray cluster has exactly one head node, and Ray cannot merge two clusters that each have a head. You have two good options:</p>
+      <div class="cols">
+        <div class="card"><span class="tag">Option A · one big cluster</span><h3 style="margin-top:8px">Austin's PCs join as workers</h3><p>Austin's machines run <code>ray start --address=&lt;minipc&gt;</code> over Tailscale. One dashboard and one pool of CPUs. The catch: work can land on any machine, and data moves over the internet, which is far slower than the LAN.</p></div>
+        <div class="card"><span class="tag">Option B · two clusters</span><h3 style="margin-top:8px">Each runs a head, and you send jobs to each other</h3><p>Austin builds his own cluster. You each submit jobs to the other's head over Tailscale with <code>ray job submit</code>. Each cluster stays fast and fails on its own. This is the simpler and sturdier starting point.</p></div>
+      </div>
+      <p style="margin-top:14px">Sending a job to the other cluster (the code folder is uploaded, so no shared drive is needed):</p>
+<pre><code>ray job submit --address http://&lt;other head 100.x IP&gt; \
+  --working-dir . -- python pi_job.py</code></pre>
+      <p>With Option A, you can still keep work local by tagging machines with a <strong>custom resource</strong> and asking for it:</p>
+<pre><code># on Austin's machines
+ray start --address=&lt;minipc&gt; --resources='{"austin": 100}'
+
+# in code: only runs where the "austin" resource exists
+@ray.remote(resources={"austin": 1})
+def crunch(x): ...</code></pre>
+      <p><strong>What suits the internet:</strong> chunky, CPU-heavy tasks with small inputs and outputs, like the pi test, simulations, and parameter sweeps. <strong>What suits the LAN only:</strong> jobs that pass big arrays or datasets between machines.</p>
+    </section>
+
+    <section>
+      <div class="eyebrow">Field guide · part 5</div>
+      <h2>Austin: building your own cluster</h2>
+      <ol class="steps">
+        <li>On each Linux machine: <code>python3 -m venv ~/.venvs/ray &amp;&amp; ~/.venvs/ray/bin/pip install "ray[default]==2.59.0"</code></li>
+        <li>Pick your strongest always-on box as head: <code>ray start --head --port=</code></li>
+        <li>On the others: <code>ray start --address=&lt;head IP&gt;</code></li>
+        <li>Check it: <code>ray status</code>, then open <code>http://&lt;head IP&gt;</code> for the dashboard.</li>
+        <li>Run a test job, for example Chris's <code>pi_job.py</code> with the address changed, and watch it on the dashboard's Jobs page.</li>
+        <li>Then add Tailscale (part 3) and choose Option A or B (part 4).</li>
+      </ol>
+    </section>
+
+    <section>
+      <div class="eyebrow">Field guide · part 6</div>
+      <h2>Adding Windows PCs on Austin's side</h2>
+      <p>Ray on plain Windows only works as a single computer: a Windows PC can't join a multi-node cluster natively. The way in is <strong>WSL2</strong>, a real Ubuntu Linux that runs inside Windows 10 or 11. Ray runs inside Ubuntu, and the PC joins as an ordinary Linux worker. Keep the <em>head</em> on a real Linux machine and use Windows PCs as workers.</p>
+      <ol class="steps">
+        <li><strong>Install Ubuntu.</strong> In PowerShell as administrator, run the command below, then reboot and create a Linux username when Ubuntu opens.
+<pre><code>wsl --install -d Ubuntu-24.04</code></pre></li>
+        <li><strong>Install Ray inside Ubuntu.</strong> Use the same Ray version as everyone else, and check that <code>python3 -V</code> matches the cluster's Python minor version.
+<pre><code>sudo apt update &amp;&amp; sudo apt install -y python3-venv
+python3 -m venv ~/.venvs/ray
+~/.venvs/ray/bin/pip install "ray[default]==2.59.0"</code></pre></li>
+        <li><strong>Install Tailscale inside Ubuntu, not only on Windows.</strong> WSL normally hides behind a private address that other machines can't reach. Tailscale gives the Linux side its own <code>100.x</code> address that every other node can reach.
+<pre><code>curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+tailscale ip -4</code></pre>
+        If it complains about systemd, put <code>[boot]</code> and <code>systemd=true</code> on two lines in <code>/etc/wsl.conf</code>, run <code>wsl --shutdown</code> in PowerShell, and reopen Ubuntu.</li>
+        <li><strong>Join the cluster</strong> from Ubuntu, using the WSL Tailscale IP:
+<pre><code>~/.venvs/ray/bin/ray start --address=&lt;head 100.x IP&gt; \
+  --node-ip-address=$(tailscale ip -4)</code></pre></li>
+        <li><strong>Give WSL enough of the PC.</strong> WSL gets only half the RAM by default. Create <code>C:\Users\&lt;you&gt;\.wslconfig</code>, then run <code>wsl --shutdown</code>:
+<pre><code>[wsl2]
+memory=12GB
+processors=8</code></pre></li>
+        <li><strong>Make it rejoin at login.</strong> In Task Scheduler, create a task that runs at logon with program <code>wsl.exe</code> and these arguments. <code>--block</code> keeps Ray, and so WSL, running.
+<pre><code>-d Ubuntu-24.04 -- bash -lc "~/.venvs/ray/bin/ray start --address=&lt;head 100.x IP&gt; --node-ip-address=&lt;this PC's WSL 100.x IP&gt; --block"</code></pre>
+        Also set Windows sleep to <em>Never</em>, or the node will drop out of the cluster when the PC sleeps.</li>
+      </ol>
+      <div class="tip"><strong>How to check it worked:</strong> on any node, <code>ray status</code> should list one more node. The Windows PC also appears on the dashboard's Cluster page under its WSL hostname.</div>
+    </section>
+  </div>
+  <footer>Snapshot from the live cluster on 2026-10-27. IPs are home-LAN private addresses.</footer>
+</div>
+
+<script>
+const N = [
+ {id:"root", label:"Ray cluster", title:"Chris's Ray cluster", body:`<p>Four home PCs pooled into one computer for Python: <strong>32 CPUs</strong>, <strong>26 GiB</strong> of Ray memory, and <strong>8.3 GiB</strong> of shared object store, all on the home LAN.</p><p>Pick a topic to explore. Each one opens into smaller pieces.</p>`},
+
+ {id:"idea", parent:"root", label:"The big idea", body:`<p>Write normal Python, add <code>@ray.remote</code>, and Ray spreads the calls across every machine in the cluster.</p><pre><code>@ray.remote
+def square(x): return x * x
+
+refs = [square.remote(i) for i in range(1000)]
+print(sum(ray.get(refs)))</code></pre><p>The four building blocks are below.</p>`},
+ {id:"tasks", parent:"idea", label:"Tasks", body:`<p>A <strong>task</strong> is one call of a remote function. It is stateless: it gets inputs, returns a result, and is gone. Tasks are ideal for "do this 400 times" work. The pi test was 400 tasks.</p>`},
+ {id:"actors", parent:"idea", label:"Actors", body:`<p>An <strong>actor</strong> is a remote <em>class</em> instance that lives on one machine and keeps its state between calls. Examples: a model loaded once and asked many questions, or a counter, or a game server.</p><pre><code>@ray.remote
+class Counter:
+    def __init__(self): self.n = 0
+    def add(self): self.n += 1; return self.n</code></pre>`},
+ {id:"objects", parent:"idea", label:"Objects", body:`<p>Every result goes into the <strong>object store</strong>, shared memory on the machine that made it. You hold an <em>ObjectRef</em>, a claim ticket. <code>ray.get(ref)</code> fetches the real value, copying it across the network if needed.</p><p><code>ray.put(big_data)</code> stores data once so many tasks can share it.</p>`},
+ {id:"driver", parent:"idea", label:"Driver", body:`<p>The <strong>driver</strong> is your script. It calls <code>ray.init(address="home network")</code>, sends work out, and gathers results. When it exits, its job ends and its tasks are cleaned up.</p>`},
+
+ {id:"ours", parent:"root", label:"Our 4 machines", body:`<p>One head and three workers on the home LAN, all on Ray 2.59.0. The head does the coordinating and also runs tasks with its own 8 CPUs.</p>`},
+ {id:"minipc", parent:"ours", label:"minipc · head", body:`<p><strong>home network</strong> · 8 CPUs · 2.8 GiB Ray memory · 7.6 GB RAM</p><p>Runs the GCS (address book), the dashboard on <code>:</code>, and the cluster port <code>:</code>. It is low on memory, so memory-hungry tasks should ask for <code>memory=</code> so Ray places them elsewhere.</p><p>Pi test: 104 tasks at 13.8 s each.</p>`},
+ {id:"ser8", parent:"ours", label:"chris-SER8", body:`<p><strong>home network</strong> · 16 CPUs · 11 GiB Ray memory · 29 GB RAM</p><p>The workhorse and Chris's desktop. It has the fastest cores in the cluster.</p><p>Pi test: 248 of 400 tasks at 11.6 s each.</p>`},
+ {id:"luke", parent:"ours", label:"ferocious-luke", body:`<p><strong>home network</strong> · 4 CPUs · 10 GiB Ray memory · 16.7 GB RAM</p><p>Slow cores but plenty of memory. A good place for memory-heavy tasks.</p><p>Pi test: 20 tasks at 36.1 s each.</p>`},
+ {id:"pc3", parent:"ours", label:"pc3", body:`<p><strong>home network</strong> · 4 CPUs · 2.6 GiB Ray memory · 3.5 GB RAM</p><p>Small and low on memory. Best for light CPU tasks.</p><p>Pi test: 28 tasks at 26.5 s each.</p>`},
+
+ {id:"inside", parent:"root", label:"Inside a node", body:`<p>Every machine runs the same few Ray processes. The head runs a couple of extra ones.</p>`},
+ {id:"gcs", parent:"inside", label:"GCS (head)", body:`<p>The <strong>Global Control Service</strong> is the cluster's address book and source of truth: which nodes are alive, what resources each has, and which jobs and actors exist. It runs only on the head, so if the head goes down, the cluster goes down.</p>`},
+ {id:"raylet", parent:"inside", label:"Raylet", body:`<p>The local manager on every node. It starts Python worker processes, decides whether a task runs here or gets passed on (spillback) to a node with free CPUs, and manages the node's object store.</p>`},
+ {id:"store", parent:"inside", label:"Object store", body:`<p>Shared memory (called Plasma) holding task results. Workers on the same machine read results with zero copying. Other machines pull a copy over the network. Total across our cluster: 8.3 GiB.</p>`},
+ {id:"workers", parent:"inside", label:"Worker processes", body:`<p>Ordinary Python processes that actually run your functions, about one per CPU. During the pi test, ferocious-luke showed 6 workers at 100% CPU.</p>`},
+ {id:"dash", parent:"inside", label:"Dashboard", body:`<p>A web UI at <code>http://home network</code> showing nodes, jobs, tasks, actors and logs live. It also takes job submissions, which is why it must never face the internet.</p>`},
+
+ {id:"life", parent:"root", label:"Life of a job", body:`<p>What happened when <code>pi_job.py</code> ran, in five steps.</p>`},
+ {id:"l1", parent:"life", label:"1 · Connect", body:`<p>The driver calls <code>ray.init(address="home network")</code>. The GCS registers a new job (ID <code>05000000</code>) and sends back the cluster layout.</p>`},
+ {id:"l2", parent:"life", label:"2 · Submit", body:`<p>400 calls to <code>sample.remote(i)</code> return 400 ObjectRefs almost instantly. Nothing has computed yet. The work is only queued.</p>`},
+ {id:"l3", parent:"life", label:"3 · Schedule", body:`<p>Raylets match each task's needs (1 CPU) to free CPUs anywhere in the cluster. All 32 CPUs fill up at once, and the other 368 tasks wait in line. The dashboard showed "Running: 32, Waiting: 113".</p>`},
+ {id:"l4", parent:"life", label:"4 · Run", body:`<p>Worker processes run the function. When one finishes, the next waiting task takes that CPU. Fast machines finish more tasks, so SER8 ended up doing 62% of the work.</p>`},
+ {id:"l5", parent:"life", label:"5 · Collect", body:`<p><code>ray.wait</code> and <code>ray.get</code> pull results back to the driver as they finish. The final answer: pi = 3.1415751 from 16 billion samples in 189 s.</p>`},
+
+ {id:"net", parent:"root", label:"Networking rules", body:`<p>Ray assumes a fast, trusted, flat network where every node can open connections to every other node in both directions.</p>`},
+ {id:"ports", parent:"net", label:"Ports", body:`<ul><li><code></code>: GCS, the cluster join port</li><li><code></code>: dashboard and job submission</li><li><code></code>: Ray Client (<code>ray://</code>)</li><li>Plus a node-manager port, an object-manager port, and a large range of worker ports (by default )</li></ul><p>There are too many ports to forward one by one, which is one more reason to use a VPN.</p>`},
+ {id:"versions", parent:"net", label:"Same versions", body:`<p>Every node and every driver must run the same Ray version (2.59.0 here) and the same Python minor version. If they don't match, the node won't join or tasks fail strangely.</p>`},
+ {id:"nofs", parent:"net", label:"No shared files", body:`<p>Each machine has its own disk. Pass data through Ray (task arguments or <code>ray.put</code>), or send code with <code>--working-dir</code> when submitting a job. A path like <code>/home/chris/data.csv</code> won't exist on pc3.</p>`},
+
+ {id:"online", parent:"root", label:"Going online", body:`<p>To use the cluster from outside the house, or to let Austin join, put every machine on a private mesh VPN. Never expose Ray ports to the internet.</p>`},
+ {id:"danger", parent:"online", label:"Never port-forward", body:`<div class="warn">By default Ray has no login. Reaching port  or  is enough to run any command on every node. Exposed clusters have been mass-exploited (ShadowRay, CVE-2023-48022).</div>`},
+ {id:"tailscale", parent:"online", label:"Tailscale mesh", body:`<p>Tailscale gives each machine a private <code>100.x.y.z</code> address that is reachable only from devices in your tailnet. It gets through home routers automatically, with no port forwarding.</p><p>Put everyone in <strong>one</strong> tailnet (Chris invites Austin). Sharing a node between two separate tailnets is one-way, and Ray needs connections in both directions.</p>`},
+ {id:"restart", parent:"online", label:"Restart on VPN IPs", body:`<p>Tell Ray to use the Tailscale address instead of the LAN one:</p><pre><code>ray start --head  \\
+  --node-ip-address=&lt;100.x&gt;
+ray start --address=&lt;head 100.x&gt; \\
+  --node-ip-address=&lt;own 100.x&gt;</code></pre>`},
+ {id:"acl", parent:"online", label:"Lock it down", body:`<p>Tag the Ray machines in the Tailscale admin console (for example <code>tag:ray</code>) and add an access rule allowing only <code>tag:ray</code> to reach other <code>tag:ray</code> machines. Phones and laptops on the tailnet then can't touch the cluster.</p>`},
+
+ {id:"win", parent:"root", label:"Windows PCs", body:`<p>Ray on plain Windows only works as a single computer: Windows PCs can't join a multi-node cluster natively. The fix is <strong>WSL2</strong>, a real Ubuntu Linux running inside Windows. Ray runs in there, and the PC joins the cluster like any Linux machine.</p>`},
+ {id:"wsl", parent:"win", label:"Install WSL2", body:`<p>In PowerShell as administrator, then reboot:</p><pre><code>wsl --install -d Ubuntu-24.04</code></pre><p>In Ubuntu, install Ray at the exact version and Python the cluster uses:</p><pre><code>sudo apt update && sudo apt install -y python3-venv
+python3 -m venv ~/.venvs/ray
+~/.venvs/ray/bin/pip install "ray[default]==2.59.0"</code></pre>`},
+ {id:"wslts", parent:"win", label:"Tailscale inside WSL", body:`<p>By default, WSL sits behind a hidden network address that other machines can't reach. Installing Tailscale <em>inside</em> Ubuntu gives the Linux side its own <code>100.x</code> address:</p><pre><code>curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+tailscale ip -4</code></pre><p>If <code>tailscale up</code> complains about systemd, add <code>[boot]</code> then <code>systemd=true</code> to <code>/etc/wsl.conf</code> and run <code>wsl --shutdown</code>.</p>`},
+ {id:"wsljoin", parent:"win", label:"Join the cluster", body:`<p>Inside Ubuntu, use the WSL Tailscale IP, not the Windows one:</p><pre><code>~/.venvs/ray/bin/ray start \\
+  --address=&lt;head 100.x&gt; \\
+  --node-ip-address=$(tailscale ip -4)</code></pre><p>Use Windows PCs as workers. Keep the head on a real Linux box.</p>`},
+ {id:"wslkeep", parent:"win", label:"Keep it running", body:`<p>WSL gets only half the PC's RAM by default, and it shuts down when nothing is using it. Set its resources in <code>C:\\Users\\&lt;you&gt;\\.wslconfig</code>:</p><pre><code>[wsl2]
+memory=12GB
+processors=8</code></pre><p>To rejoin automatically at login, create a Task Scheduler task that runs:</p><pre><code>wsl -d Ubuntu-24.04 -- bash -lc "~/.venvs/ray/bin/ray start --address=&lt;head 100.x&gt; --node-ip-address=&lt;this PC's WSL 100.x&gt; --block"</code></pre><p><code>--block</code> keeps WSL alive. Also turn off sleep in the Windows power settings.</p>`},
+
+ {id:"two", parent:"root", label:"Two clusters together", body:`<p>One Ray cluster has one head. Chris's and Austin's setups can work together in two ways.</p>`},
+ {id:"optA", parent:"two", label:"A · One big cluster", body:`<p>Austin's machines join Chris's head as workers over Tailscale. You get one pool of CPUs and one dashboard.</p><p>Trade-off: tasks and data cross the internet, so it is slower, and if Chris's head goes down, Austin's machines drop out too.</p>`},
+ {id:"optB", parent:"two", label:"B · Send each other jobs", body:`<p>Each person runs a full cluster with their own head and sends jobs to the other's head:</p><pre><code>ray job submit \\
+  --address http://&lt;head 100.x&gt; \\
+  --working-dir . -- python job.py</code></pre><p>Each cluster stays fast and independent. This is the recommended way to start.</p>`},
+ {id:"resources", parent:"two", label:"Steer work by site", body:`<p>With Option A, tag machines with a custom resource so work goes where you want:</p><pre><code>ray start ... --resources='{"austin": 100}'
+
+@ray.remote(resources={"austin": 1})
+def f(): ...</code></pre>`},
+ {id:"fit", parent:"two", label:"What works remotely", body:`<p><strong>Good over the internet:</strong> CPU-heavy tasks with small inputs and outputs, like the pi test, simulations, parameter sweeps, and batch API calls.</p><p><strong>Keep on the LAN:</strong> jobs that shuffle big arrays, images or datasets between tasks.</p>`},
+];
+const byId = Object.fromEntries(N.map(n => [n.id, n]));
+const kids = id => N.filter(n => n.parent === id);
+const branches = kids("root");
+
+const pos = { root: {x: 0, y: 0} };
+const R1 = 215, R2 = 150;
+branches.forEach((b, i) => {
+  const a = -Math.PI / 2 + i * 2 * Math.PI / branches.length;
+  b.angle = a;
+  pos[b.id] = { x: R1 * Math.cos(a) * 1.25, y: R1 * Math.sin(a) };
+  const ks = kids(b.id), spread = 0.5;
+  ks.forEach((k, j) => {
+    const off = (j - (ks.length - 1) / 2) * spread;
+    pos[k.id] = { x: pos[b.id].x + R2 * Math.cos(a + off) * 1.25, y: pos[b.id].y + R2 * Math.sin(a + off) };
+  });
+});
+
+const svg = document.getElementById("map"), NS = "http://www.w3.org/2000/svg";
+const el = (t, attrs, parent) => { const e = document.createElementNS(NS, t); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+const gEdges = el("g", {}, svg), gNodes = el("g", {}, svg);
+const view = {};
+N.forEach(n => {
+  if (n.parent) {
+    const p = pos[n.parent], c = pos[n.id];
+    const mx = (p.x + c.x) / 2, my = (p.y + c.y) / 2;
+    view[n.id + "_e"] = el("path", { class: "edge", d: `M${p.x},${p.y} Q${mx * 0.98},${my * 1.02} ${c.x},${c.y}` }, gEdges);
+  }
+  const kind = n.id === "root" ? "root" : n.parent === "root" ? "branch" : "leaf";
+  const g = el("g", { class: `node ${kind}`, tabindex: 0, role: "button", "aria-label": n.title || n.label, transform: `translate(${pos[n.id].x},${pos[n.id].y})` }, gNodes);
+  const w = n.label.length * (kind === "root" ? 11 : 8.2) + 30, h = kind === "root" ? 52 : 38;
+  el("rect", { x: -w / 2, y: -h / 2, width: w, height: h, rx: h / 2 }, g);
+  el("text", {}, g).textContent = n.label;
+  g.addEventListener("click", () => select(n.id));
+  g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(n.id); } });
+  view[n.id] = g;
+});
+
+const branchOf = id => id === "root" ? null : (byId[id].parent === "root" ? id : byId[id].parent);
+const order = N.map(n => n.id);
+const detail = document.getElementById("detail");
+
+function select(id) {
+  const n = byId[id], open = branchOf(id);
+  N.forEach(m => {
+    const b = branchOf(m.id);
+    const isLeaf = m.parent && m.parent !== "root";
+    const hidden = isLeaf && b !== open;
+    view[m.id].style.display = hidden ? "none" : "";
+    if (view[m.id + "_e"]) view[m.id + "_e"].style.display = hidden ? "none" : "";
+    const dim = open && !hidden && m.id !== "root" && b !== open;
+    view[m.id].classList.toggle("dim", dim);
+    if (view[m.id + "_e"]) view[m.id + "_e"].classList.toggle("dim", dim);
+    view[m.id].classList.toggle("sel", m.id === id);
+  });
+  if (open) gNodes.appendChild(view[open]);
+  kids(open || "").forEach(k => gNodes.appendChild(view[k.id]));
+
+  const trail = [];
+  for (let c = id; c; c = byId[c].parent) trail.unshift(c);
+  const i = order.indexOf(id);
+  const prev = order[i - 1], next = order[i + 1];
+  const children = kids(id);
+  detail.innerHTML = `
+    <div class="crumbs">${trail.map((t, k) => k < trail.length - 1 ? `<button data-go="${t}">${byId[t].label}</button> / ` : byId[t].label).join("")}</div>
+    <h3>${n.title || n.label}</h3>${n.body}
+    ${children.length ? `<div class="kids">${children.map(k => `<button data-go="${k.id}">${k.label}</button>`).join("")}</div>` : ""}
+    <div class="navrow"><span>${prev ? `<button data-go="${prev}">← ${byId[prev].label}</button>` : ""}</span><span>${next ? `<button data-go="${next}">${byId[next].label} →</button>` : ""}</span></div>`;
+  detail.querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => select(b.dataset.go)));
+}
+select("root");
+</script>

@@ -1,0 +1,54 @@
+#cloud-config
+autoinstall:
+  version: 1
+  interactive-sections: []
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+  ssh:
+    install-server: true
+    allow-pw: true
+  storage:
+    layout:
+      name: direct
+      match:
+        size: largest
+    config: []
+  identity:
+    hostname: pc3
+    username: chris
+    password: "<PASSWORD_HASH>"
+  user-data:
+    disable_root: false
+    users:
+      - name: chris
+        groups: [adm, sudo]
+        shell: /bin/bash
+        sudo: "ALL=(ALL) NOPASSWD:ALL"
+        lock_passwd: false
+        passwd: "<PASSWORD_HASH>"
+        ssh_authorized_keys:
+          - "<YOUR_SSH_PUBLIC_KEY>
+          - "<YOUR_SSH_PUBLIC_KEY>
+  early-commands:
+    # The server's clock was ~1 year behind, which makes apt reject Ubuntu's repository
+    # data ("not valid yet") and fail the install (curtin exit 100). Set the clock from
+    # the minipc's HTTP Date header before anything else runs, and write it to the RTC.
+    - 'd=$(curl -sI http://<HEAD_IP>:8086/ | sed -n "s/^[Dd]ate: //p" | tr -d "\r"); [ -n "$d" ] && date -s "$d" >/dev/null && hwclock --systohc; true'
+    # Report the (now corrected) clock back so it shows in the boot server's log.
+    - 'curl -s -o /dev/null "http://<HEAD_IP>:8086/CLOCK-NOW-$(date -u +%Y-%m-%dT%H-%M-%SZ)"; true'
+  packages:
+    - openssh-server
+    - python3-venv
+    - rsync
+    - curl
+    - ufw
+  late-commands:
+    - curtin in-target --target=/target -- systemctl enable ssh
+    - echo 'pc3' > /target/etc/hostname
+    # Handshake with the boot server: tell it we're done, then wait (up to 10 min)
+    # for it to switch network-boot off before we reboot. Prevents PXE-booting
+    # straight back into another reinstall.
+    - 'curl -s -o /dev/null http://<HEAD_IP>:8086/INSTALL-DONE || true'
+    - 'for i in $(seq 1 120); do curl -sf -o /dev/null http://<HEAD_IP>:8086/OK-TO-REBOOT && break; sleep 5; done; true'
+  shutdown: reboot

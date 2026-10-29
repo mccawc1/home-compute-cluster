@@ -1,0 +1,12 @@
+#!ipxe
+dhcp
+echo
+echo ====== Ubuntu auto-install for pc3 (cluster node) ======
+echo Installer is streamed over NFS from the minipc (low-RAM mode).
+echo Wiping the largest disk and installing Ubuntu 26.04. Do not power off.
+echo
+kernel http://<HEAD_IP>:8086/vmlinuz boot=casper netboot=nfs nfsroot=<HEAD_IP>:/srv/pc3-iso ip=dhcp autoinstall ds=nocloud-net;s=http://<HEAD_IP>:8086/ ---
+initrd http://<HEAD_IP>:8086/initrd
+boot
+echo BOOT FAILED - dropping to iPXE shell so the error stays on screen
+shell
